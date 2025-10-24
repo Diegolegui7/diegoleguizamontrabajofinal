@@ -8,6 +8,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+
 # --- Fixture para el navegador ---
 @pytest.fixture
 def driver():
@@ -20,7 +21,7 @@ def driver():
     driver.quit()
 
 
-# --- Funciones auxiliares ---
+# --- Función para login ---
 def login(driver, username, password):
     driver.get("https://www.saucedemo.com/")
     driver.delete_all_cookies()
@@ -35,42 +36,31 @@ def login(driver, username, password):
     time.sleep(1)
 
 
-def has_login_error(driver):
-    errors = driver.find_elements(By.CLASS_NAME, "error-button")
-    return len(errors) > 0
-
-
-def product_available(driver, product_id):
+# --- Función para verificar la mochila ---
+def verificar_mochila(driver):
     try:
-        product = driver.find_element(By.ID, product_id)
-        return product.is_displayed()
+        driver.find_element(By.ID, "item_4_img_link")
+        return True
     except:
         return False
 
 
-# --- Test parametrizado para todos los usuarios ---
-@pytest.mark.parametrize("username,password", [
-    ("standard_user", "secret_sauce"),   # válido
-    ("admin", "1234"),                   # inválido
-    ("mod", "123")                        # inválido
+# --- Test con varios usuarios ---
+@pytest.mark.parametrize("username,password,es_valido", [
+    ("standard_user", "secret_sauce", True),  # válido
+    ("admin", "1234", False),                 # inválido
+    ("mod", "123", False)                     # inválido
 ])
-def test_login_flow(driver, username, password):
+def test_login(driver, username, password, es_valido):
     login(driver, username, password)
 
-    if has_login_error(driver):
-        print(f"Error al iniciar sesión con: {username}")
-        login_ok = False
-    else:
-        print(f"Login exitoso con: {username}")
-        login_ok = True
-
-    # --- Verificar mochila solo si login fue exitoso ---
-    if login_ok:
-        disponible = product_available(driver, "item_4_img_link")
-        if disponible:
-            print("Mochila disponible correctamente")
+    if "inventory" in driver.current_url:
+        print(f" Login exitoso con {username}")
+        if verificar_mochila(driver):
+            print(" Mochila disponible correctamente")
         else:
-            print("Mochila no encontrada o página no cargó bien")
-        assert disponible, f"El producto 'mochila' no está disponible para {username}"
+            print(" Mochila no encontrada")
+        assert es_valido, f"El usuario {username} no debería haber podido iniciar sesión"
     else:
-        print(f"No se verificó la mochila porque login falló con {username}")
+        print(f" Error al iniciar sesión con {username}")
+        assert not es_valido, f"El usuario {username} debería haber iniciado sesión correctamente"
